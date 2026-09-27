@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<title>FindMyBall</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #07110b;
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                 Arial, sans-serif;
+}
+
+header {
+    text-align: center;
+    padding: 30px 20px 20px;
+    background: #0d1d12;
+}
+
+h1 {
+    margin: 0;
+    font-size: 34px;
+}
+
+.tagline {
+    margin-top: 6px;
+    color: #a7bea9;
+}
+
+main {
+    padding: 20px;
+    max-width: 600px;
+    margin: auto;
+}
+
+.card {
+    background: #122217;
+    border-radius: 22px;
+    padding: 22px;
+    margin-bottom: 18px;
+}
+
+h2 {
+    margin-top: 0;
+}
+
+.description {
+    color: #b3c5b6;
+    line-height: 1.5;
+}
+
+button {
+    width: 100%;
+    border: none;
+    border-radius: 17px;
+    padding: 18px;
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    background: #198844;
+}
+
+button.secondary {
+    background: #294733;
+}
+
+.hidden {
+    display: none;
+}
+
+#cameraBox {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    background: black;
+    border-radius: 22px;
+    overflow: hidden;
+}
+
+#video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.scanBox {
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 20%;
+    bottom: 20%;
+    border: 3px solid rgba(80, 230, 120, 0.7);
+    border-radius: 25px;
+}
+
+.scanLine {
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    height: 3px;
+    background: #5bea82;
+    box-shadow: 0 0 15px #5bea82;
+    animation: scan 2.5s infinite;
+}
+
+@keyframes scan {
+    0% {
+        top: 25%;
+    }
+
+    50% {
+        top: 75%;
+    }
+
+    100% {
+        top: 25%;
+    }
+}
+
+.status {
+    text-align: center;
+    padding: 17px;
+    margin-top: 15px;
+    border-radius: 16px;
+    background: #182a1d;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.status.found {
+    background: #198844;
+}
+
+.gps {
+    font-family: monospace;
+    color: #9fbea6;
+    font-size: 13px;
+    margin-top: 10px;
+}
+
+footer {
+    text-align: center;
+    color: #718474;
+    font-size: 13px;
+    padding: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>FindMyBall</h1>
+    <div class="tagline">
+        Hit it. Mark it. Find it.
+    </div>
+</header>
+
+<main>
+
+    <!-- HOME -->
+    <div id="home" class="card">
+
+        <h2>Ready to find your ball?</h2>
+
+        <p class="description">
+            Mark where you hit your shot, walk toward your ball,
+            then use the camera scanner to find it.
+        </p>
+
+        <p class="description">
+            No club selection.<br>
+            No photo before your shot.<br>
+            No previous golfer information.
+        </p>
+
+        <button onclick="markShot()">
+            MARK MY SHOT
+        </button>
+
+    </div>
+
+
+    <!-- MARKED SHOT -->
+    <div id="marked" class="card hidden">
+
+        <h2>Shot marked ✓</h2>
+
+        <p class="description">
+            Your shot location has been recorded.
+        </p>
+
+        <div id="gps" class="gps">
+            Getting GPS location...
+        </div>
+
+        <p class="description">
+            Walk toward where your ball should be.
+            When you're ready, start the scanner.
+        </p>
+
+        <button onclick="startScanner()">
+            FIND MY BALL
+        </button>
+
+    </div>
+
+
+    <!-- SCANNER -->
+    <div id="scanner" class="hidden">
+
+        <div id="cameraBox">
+
+            <video
+                id="video"
+                autoplay
+                playsinline
+                muted>
+            </video>
+
+            <div class="scanBox"></div>
+
+            <div class="scanLine"></div>
+
+        </div>
+
+        <div id="status" class="status">
+            SCANNING...
+        </div>
+
+        <p class="description"
+           style="text-align:center">
+
+            Move slowly and keep the grass inside
+            the scanning box.
+
+        </p>
+
+        <button
+            class="secondary"
+            onclick="stopScanner()">
+
+            STOP SCAN
+
+        </button>
+
+    </div>
+
+</main>
+
+<footer>
+    FindMyBall — prototype
+</footer>
+
+
+<script>
+
+let cameraStream = null;
+let detectionTimer = null;
+
+
+/* =========================
+   MARK SHOT
+========================= */
+
+function markShot() {
+
+    document
+        .getElementById("home")
+        .classList
+        .add("hidden");
+
+    document
+        .getElementById("marked")
+        .classList
+        .remove("hidden");
+
+
+    if ("geolocation" in navigator) {
+
+        navigator.geolocation.getCurrentPosition(
+
+            function(position) {
+
+                const latitude =
+                    position.coords.latitude.toFixed(6);
+
+                const longitude =
+                    position.coords.longitude.toFixed(6);
+
+                document
+                    .getElementById("gps")
+                    .textContent =
+                    "GPS: " +
+                    latitude +
+                    ", " +
+                    longitude;
+            },
+
+            function() {
+
+                document
+                    .getElementById("gps")
+                    .textContent =
+                    "GPS permission was not available.";
+            }
+
+        );
+
+    } else {
+
+        document
+            .getElementById("gps")
+            .textContent =
+            "GPS is not supported on this device.";
+
+    }
+
+}
+
+
+/* =========================
+   START CAMERA
+========================= */
+
+async function startScanner() {
+
+    document
+        .getElementById("marked")
+        .classList
+        .add("hidden");
+
+    document
+        .getElementById("scanner")
+        .classList
+        .remove("hidden");
+
+
+    const video =
+        document.getElementById("video");
+
+    const status =
+        document.getElementById("status");
+
+
+    try {
+
+        cameraStream =
+            await navigator.mediaDevices.getUserMedia({
+
+                video: {
+                    facingMode: {
+                        ideal: "environment"
+                    }
+                },
+
+                audio: false
+
+            });
+
+
+        video.srcObject =
+            cameraStream;
+
+
+        status.textContent =
+            "SCANNING...";
+
+
+        status.className =
+            "status";
+
+
+        /*
+         * TEMPORARY TEST
+         *
+         * This demonstrates the user experience.
+         *
+         * Later this section will be replaced
+         * with the real golf-ball AI detector.
+         */
+
+        detectionTimer =
+            setTimeout(function() {
+
+                status.textContent =
+                    "Possible ball detected";
+
+                status.style.background =
+                    "#496c50";
+
+
+                setTimeout(function() {
+
+                    status.textContent =
+                        "BALL FOUND ✓";
+
+                    status.className =
+                        "status found";
+
+                }, 1800);
+
+
+            }, 4500);
+
+
+    } catch (error) {
+
+        status.textContent =
+            "Camera permission required";
+
+        alert(
+            "Please allow Safari to use the camera, " +
+            "then press FIND MY BALL again."
+        );
+
+    }
+
+}
+
+
+/* =========================
+   STOP CAMERA
+========================= */
+
+function stopScanner() {
+
+    clearTimeout(detectionTimer);
+
+
+    if (cameraStream) {
+
+        cameraStream
+            .getTracks()
+            .forEach(function(track) {
+
+                track.stop();
+
+            });
+
+    }
+
+
+    cameraStream = null;
+
+
+    document
+        .getElementById("scanner")
+        .classList
+        .add("hidden");
+
+
+    document
+        .getElementById("marked")
+        .classList
+        .remove("hidden");
+
+}
+
+</script>
+
+</body>
+</html>
